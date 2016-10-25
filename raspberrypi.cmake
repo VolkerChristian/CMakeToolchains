@@ -8,6 +8,13 @@ SET(SYSROOT /home/voc/usr/toolchains/raspberry/tools/arm-bcm2708/arm-rpi-4.9.3-l
 SET(TOOLCHAINROOT /home/voc/usr/toolchains/raspberry/tools/arm-bcm2708/arm-rpi-4.9.3-linux-gnueabihf)
 SET(TARGETARCHITECTURE arm-linux-gnueabihf)
 
+# You can set the REMOTE_INSTALL_BASE here or in your projects cmake-file like
+#	set(REMOTE_INSTALL_BASE pi@raspberrypi.domain.org:/home/pi)
+# or define and export the environment variable REMOTE_INSTALL_BASE like
+#	export REMOTE_INSTALL_BASE=pi@raspberrypi.domain.org:/home/pi
+# or call cmake like
+#	cmake -DREMOTE_INSTALL_BASE=pi@raspberrypi.domain.org:/home/pi
+
 # this one is important
 SET(CMAKE_SYSTEM_NAME Linux)
 # this one not so much
@@ -43,17 +50,35 @@ SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
-if(i${MY_INSTALL_INCLUDED} STREQUAL i)
-	set(MY_INSTALL_INCLUDED true)
+
+
+if(NOT DEFINED MY_INSTALL_INCLUDED)
+	set(MY_INSTALL_INCLUDED yes)
 	function(install)
-		set(options OPTIONAL RUNTIME)
-		set(oneValueArgs DESTINATION)
-		set(multiValueArgs TARGETS SCPARGS)
-		cmake_parse_arguments(MY_INSTALL "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-		if(i${MY_INSTALL_DESTINATION} STREQUAL i)
-			message(FATAL_ERROR "install TARGETS given no RUNTIME DESTINATION for executable ${MY_INSTALL_TARGETS}.")
+		if(DEFINED ENV{REMOTE_INSTALL_BASE})
+			set(REMOTE_INSTALL_BASE $ENV{REMOTE_INSTALL_BASE})
 		endif()
-		_install(CODE "MESSAGE(\"\t${MY_INSTALL_TARGETS}: using /usr/bin/scp ${MY_INSTALL_SCPARGS} ${MY_INSTALL_TARGETS} ${SCP_INSTALL_DESTINATION}/${MY_INSTALL_DESTINATION}/\")")
-		_install(CODE "execute_process(COMMAND \"/usr/bin/scp\" ${MY_INSTALL_SCPARGS} \"${MY_INSTALL_TARGETS}\" \"${SCP_INSTALL_DESTINATION}/${MY_INSTALL_DESTINATION}/\")")
+		if(DEFINED REMOTE_INSTALL_BASE)
+			set(multiValueArgs TARGETS)
+			set(oneValueArgs DESTINATION)
+			cmake_parse_arguments("INSTALL" "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+			if(NOT i$INSTALL_TARGETS STREQUAL i)
+				string(REGEX MATCH "^.*:" REMOTE_HOST ${REMOTE_INSTALL_BASE})
+				string(REPLACE ":" "" REMOTE_HOST ${REMOTE_HOST})
+				string(REGEX MATCH ":.*$" REMOTE_ROOT ${REMOTE_INSTALL_BASE})
+				string(REPLACE ":" "" REMOTE_ROOT ${REMOTE_ROOT})
+				set(REMOTE_INSTALL_PREFIX ${REMOTE_ROOT}${CMAKE_INSTALL_PREFIX})
+				set(CMAKE_INSTALL_PREFIX "${${CMAKE_PROJECT_NAME}_BINARY_DIR}/install" CACHE STRING "" FORCE)
+				_install(${ARGN})
+				_install(CODE "MESSAGE(\"\t/usr/bin/ssh ${REMOTE_HOST} mkdir -p ${REMOTE_INSTALL_PREFIX}/${INSTALL_DESTINATION}\")")
+				_install(CODE "execute_process(COMMAND /usr/bin/ssh ${REMOTE_HOST} mkdir -p \"${REMOTE_INSTALL_PREFIX}/${INSTALL_DESTINATION}\")")
+				foreach(INSTALL_TARGET IN LISTS INSTALL_TARGETS)
+					_install(CODE "MESSAGE(\"\tinstalling ${INSTALL_TARGET}: using /usr/bin/scp ${INSTALL_SCPARGS} ${CMAKE_INSTALL_PREFIX}/${INSTALL_DESTINATION}/${INSTALL_TARGET} ${REMOTE_HOST}:${REMOTE_INSTALL_PREFIX}/${INSTALL_DESTINATION}/\")")
+					_install(CODE "execute_process(COMMAND /usr/bin/scp -p ${INSTALL_SCPARGS} ${CMAKE_INSTALL_PREFIX}/${INSTALL_DESTINATION}/${INSTALL_TARGET} ${REMOTE_HOST}:${REMOTE_INSTALL_PREFIX}/${INSTALL_DESTINATION}/)")
+				endforeach(INSTALL_TARGET)
+			endif()
+		else()
+			_install(${ARGN})
+		endif()
 	endfunction()
 endif()
