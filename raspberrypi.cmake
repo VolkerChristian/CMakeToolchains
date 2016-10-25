@@ -19,6 +19,8 @@ SET(TARGETARCHITECTURE arm-linux-gnueabihf)
 SET(CMAKE_SYSTEM_NAME Linux)
 # this one not so much
 SET(CMAKE_SYSTEM_VERSION 1)
+set(CMAKE_SYSTEM_PROCESSOR armv7)
+
 # this informs cmake about the system-root
 SET(CMAKE_SYSROOT ${SYSROOT})
 # this sets the architecture correctly
@@ -70,7 +72,7 @@ if(NOT DEFINED MY_INSTALL_INCLUDED)
 				set(REMOTE_INSTALL_PREFIX ${REMOTE_ROOT}${CMAKE_INSTALL_PREFIX})
 				set(CMAKE_INSTALL_PREFIX "${${CMAKE_PROJECT_NAME}_BINARY_DIR}/install" CACHE STRING "" FORCE)
 				_install(${ARGN})
-				_install(CODE "MESSAGE(\"\t/usr/bin/ssh ${REMOTE_HOST} mkdir -p ${REMOTE_INSTALL_PREFIX}/${INSTALL_DESTINATION}\")")
+				_install(CODE "MESSAGE(\"\tcreating install directory: using /usr/bin/ssh ${REMOTE_HOST} mkdir -p ${REMOTE_INSTALL_PREFIX}/${INSTALL_DESTINATION}\")")
 				_install(CODE "execute_process(COMMAND /usr/bin/ssh ${REMOTE_HOST} mkdir -p \"${REMOTE_INSTALL_PREFIX}/${INSTALL_DESTINATION}\")")
 				foreach(INSTALL_TARGET IN LISTS INSTALL_TARGETS)
 					_install(CODE "MESSAGE(\"\tinstalling ${INSTALL_TARGET}: using /usr/bin/scp ${INSTALL_SCPARGS} ${CMAKE_INSTALL_PREFIX}/${INSTALL_DESTINATION}/${INSTALL_TARGET} ${REMOTE_HOST}:${REMOTE_INSTALL_PREFIX}/${INSTALL_DESTINATION}/\")")
